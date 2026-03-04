@@ -6,10 +6,11 @@
 #include <QRect>
 #include <QVector>
 #include <QColor>
+#include "../platform/platform_api.h"
+#include <unordered_map>
 
 namespace easyshotter {
 
-class PlatformApi;
 class ToolbarWidget;
 class PreviewWidget;
 
@@ -66,6 +67,7 @@ private:
 
     // Selection helpers
     QRect normalizedSelection() const;
+    QRect selectionToScreen(const QRect& widgetRect) const;
     void confirmCapture();
     void cancelCapture();
     void updateAutoDetect(const QPoint& pos);
@@ -89,6 +91,8 @@ private:
 
     // Auto detect
     bool m_detectControls = true;
+    std::vector<WindowInfo> m_cachedWindows;
+    std::unordered_map<quintptr, std::vector<ControlInfo>> m_controlsCache;
 
     // Child widgets
     ToolbarWidget* m_toolbar;

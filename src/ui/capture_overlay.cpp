@@ -48,10 +48,13 @@ void CaptureOverlay::startCapture()
     }
     setGeometry(virtualGeometry);
 
-    // Capture screen
+    // Capture screen and cache window list BEFORE showing overlay
+    // This ensures the overlay itself is not included in the window list
     if (m_api) {
         m_screenPixmap = m_api->captureScreen();
+        m_cachedWindows = m_api->getVisibleWindows();
     }
+    m_controlsCache.clear();
 
     // Reset state
     m_state = State::AutoDetect;
@@ -65,7 +68,9 @@ void CaptureOverlay::startCapture()
     m_toolbar->hide();
 
     setCursor(Qt::CrossCursor);
-    showFullScreen();
+    show();
+    // Re-apply geometry after show() to ensure multi-monitor coverage
+    setGeometry(virtualGeometry);
     setFocus();
     raise();
     activateWindow();
@@ -76,6 +81,11 @@ void CaptureOverlay::startCapture()
 QRect CaptureOverlay::normalizedSelection() const
 {
     return m_selectionRect.normalized();
+}
+
+QRect CaptureOverlay::selectionToScreen(const QRect& widgetRect) const
+{
+    return QRect(mapToGlobal(widgetRect.topLeft()), widgetRect.size());
 }
 
 void CaptureOverlay::confirmCapture()
@@ -107,19 +117,49 @@ void CaptureOverlay::updateAutoDetect(const QPoint& pos)
 {
     if (!m_api) return;
 
-    // Try to find window at cursor position
-    WindowInfo winInfo = m_api->windowAtPoint(pos);
+    // Convert widget-local coordinates to screen coordinates
+    QPoint screenPos = mapToGlobal(pos);
 
-    if (winInfo.handle != 0 && winInfo.rect.isValid()) {
-        // If control detection is enabled, try to find a finer control
+    // Find window from cached list (captured before overlay was shown)
+    WindowInfo matchedWindow;
+    for (const auto& win : m_cachedWindows) {
+        if (win.rect.contains(screenPos)) {
+            matchedWindow = win;
+            break;  // First match = topmost (Z-Order)
+        }
+    }
+
+    if (matchedWindow.handle != 0 && matchedWindow.rect.isValid()) {
         if (m_detectControls) {
-            ControlInfo ctrlInfo = m_api->controlAtPoint(pos);
-            if (ctrlInfo.rect.isValid() && !ctrlInfo.rect.isEmpty()) {
-                m_highlightRect = ctrlInfo.rect;
+            // Lazy-load controls for this window using ElementFromHandle + TreeWalker
+            // (works even with overlay on top, unlike ElementFromPoint)
+            auto it = m_controlsCache.find(matchedWindow.handle);
+            if (it == m_controlsCache.end()) {
+                auto controls = m_api->getWindowControls(matchedWindow.handle);
+                it = m_controlsCache.emplace(matchedWindow.handle, std::move(controls)).first;
+            }
+
+            // Find the smallest control containing the cursor
+            ControlInfo bestControl;
+            int bestArea = INT_MAX;
+            for (const auto& ctrl : it->second) {
+                if (ctrl.rect.contains(screenPos)) {
+                    int area = ctrl.rect.width() * ctrl.rect.height();
+                    if (area < bestArea) {
+                        bestArea = area;
+                        bestControl = ctrl;
+                    }
+                }
+            }
+
+            if (bestControl.rect.isValid() && !bestControl.rect.isEmpty()) {
+                // Convert screen coords to widget-local for painting
+                m_highlightRect = bestControl.rect.translated(-geometry().topLeft());
                 return;
             }
         }
-        m_highlightRect = winInfo.rect;
+        // Highlight the whole window, convert to widget-local coords
+        m_highlightRect = matchedWindow.rect.translated(-geometry().topLeft());
     } else {
         m_highlightRect = QRect();
     }
@@ -384,7 +424,7 @@ void CaptureOverlay::mousePressEvent(QMouseEvent* event)
             // Accept auto-detected region
             m_selectionRect = m_highlightRect;
             m_state = State::Selected;
-            m_toolbar->showNearRect(m_selectionRect);
+            m_toolbar->showNearRect(selectionToScreen(m_selectionRect));
             m_preview->hide();
             update();
             return;
@@ -410,13 +450,13 @@ void CaptureOverlay::mouseMoveEvent(QMouseEvent* event)
     switch (m_state) {
     case State::AutoDetect:
         updateAutoDetect(pos);
-        m_preview->updatePosition(pos);
+        m_preview->updatePosition(mapToGlobal(pos), pos);
         update();
         break;
 
     case State::Selecting:
         m_selectionRect = QRect(m_dragStartPos, pos);
-        m_preview->updatePosition(pos);
+        m_preview->updatePosition(mapToGlobal(pos), pos);
         update();
         break;
 
@@ -467,7 +507,7 @@ void CaptureOverlay::mouseReleaseEvent(QMouseEvent* event)
         if (sel.width() > 3 && sel.height() > 3) {
             m_selectionRect = sel;
             m_state = State::Selected;
-            m_toolbar->showNearRect(sel);
+            m_toolbar->showNearRect(selectionToScreen(sel));
             m_preview->hide();
         } else {
             // Selection too small, go back to auto-detect
@@ -483,7 +523,7 @@ void CaptureOverlay::mouseReleaseEvent(QMouseEvent* event)
         m_selectionRect = normalizedSelection();
         m_state = State::Selected;
         m_activeHandle = Handle::None;
-        m_toolbar->showNearRect(m_selectionRect);
+        m_toolbar->showNearRect(selectionToScreen(m_selectionRect));
         update();
         break;
 

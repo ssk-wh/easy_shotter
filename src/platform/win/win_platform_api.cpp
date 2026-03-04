@@ -70,8 +70,23 @@ bool WinPlatformApi::isValidWindow(HWND hwnd) const
     if (!IsWindowVisible(hwnd)) return false;
     if (IsIconic(hwnd)) return false;
 
+    // Exclude desktop and shell windows
+    if (hwnd == GetDesktopWindow()) return false;
+    if (hwnd == GetShellWindow()) return false;
+
+    // Exclude desktop background windows (Progman, WorkerW)
+    wchar_t className[256] = {};
+    GetClassNameW(hwnd, className, 256);
+    if (wcscmp(className, L"Progman") == 0) return false;
+    if (wcscmp(className, L"WorkerW") == 0) return false;
+
     DWORD exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
     if (exStyle & WS_EX_TOOLWINDOW) return false;
+
+    // Exclude cloaked windows (Win10/11 hidden UWP windows)
+    DWORD cloaked = 0;
+    DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked));
+    if (cloaked) return false;
 
     RECT rect;
     GetWindowRect(hwnd, &rect);
@@ -241,25 +256,15 @@ ControlInfo WinPlatformApi::controlAtPoint(const QPoint& screenPos)
     return info;
 }
 
-std::vector<ControlInfo> WinPlatformApi::getWindowControls(NativeWindowHandle window)
+static void collectControlsRecursive(IUIAutomationTreeWalker* pWalker,
+                                      IUIAutomationElement* pParent,
+                                      std::vector<ControlInfo>& result,
+                                      int depth)
 {
-    std::vector<ControlInfo> result;
-    if (!m_uiAutomation) return result;
-
-    HWND hwnd = reinterpret_cast<HWND>(window);
-    IUIAutomationElement* pWindowElement = nullptr;
-    HRESULT hr = m_uiAutomation->ElementFromHandle(hwnd, &pWindowElement);
-    if (FAILED(hr) || !pWindowElement) return result;
-
-    IUIAutomationTreeWalker* pWalker = nullptr;
-    hr = m_uiAutomation->get_ControlViewWalker(&pWalker);
-    if (FAILED(hr) || !pWalker) {
-        pWindowElement->Release();
-        return result;
-    }
+    if (depth > 8) return;  // Limit recursion depth
 
     IUIAutomationElement* pChild = nullptr;
-    pWalker->GetFirstChildElement(pWindowElement, &pChild);
+    pWalker->GetFirstChildElement(pParent, &pChild);
     while (pChild) {
         ControlInfo info;
 
@@ -278,20 +283,60 @@ std::vector<ControlInfo> WinPlatformApi::getWindowControls(NativeWindowHandle wi
 
         CONTROLTYPEID controlType;
         if (SUCCEEDED(pChild->get_CurrentControlType(&controlType))) {
-            if (controlType == UIA_ButtonControlTypeId) info.type = ControlType::Button;
-            else if (controlType == UIA_EditControlTypeId) info.type = ControlType::Edit;
-            else if (controlType == UIA_WindowControlTypeId) info.type = ControlType::Window;
+            switch (controlType) {
+            case UIA_ButtonControlTypeId:    info.type = ControlType::Button; break;
+            case UIA_CheckBoxControlTypeId:  info.type = ControlType::CheckBox; break;
+            case UIA_RadioButtonControlTypeId: info.type = ControlType::RadioButton; break;
+            case UIA_ComboBoxControlTypeId:  info.type = ControlType::ComboBox; break;
+            case UIA_EditControlTypeId:      info.type = ControlType::Edit; break;
+            case UIA_TextControlTypeId:      info.type = ControlType::Label; break;
+            case UIA_ListControlTypeId:      info.type = ControlType::List; break;
+            case UIA_ListItemControlTypeId:  info.type = ControlType::ListItem; break;
+            case UIA_MenuControlTypeId:      info.type = ControlType::Menu; break;
+            case UIA_MenuItemControlTypeId:  info.type = ControlType::MenuItem; break;
+            case UIA_TabControlTypeId:       info.type = ControlType::Tab; break;
+            case UIA_TabItemControlTypeId:   info.type = ControlType::TabItem; break;
+            case UIA_TreeControlTypeId:      info.type = ControlType::Tree; break;
+            case UIA_TreeItemControlTypeId:  info.type = ControlType::TreeItem; break;
+            case UIA_ToolBarControlTypeId:   info.type = ControlType::ToolBar; break;
+            case UIA_StatusBarControlTypeId: info.type = ControlType::StatusBar; break;
+            case UIA_GroupControlTypeId:     info.type = ControlType::Group; break;
+            default:                         info.type = ControlType::Unknown; break;
+            }
         }
 
         if (info.rect.width() > 0 && info.rect.height() > 0) {
             result.push_back(info);
         }
 
+        // Recurse into children
+        collectControlsRecursive(pWalker, pChild, result, depth + 1);
+
         IUIAutomationElement* pNext = nullptr;
         pWalker->GetNextSiblingElement(pChild, &pNext);
         pChild->Release();
         pChild = pNext;
     }
+}
+
+std::vector<ControlInfo> WinPlatformApi::getWindowControls(NativeWindowHandle window)
+{
+    std::vector<ControlInfo> result;
+    if (!m_uiAutomation) return result;
+
+    HWND hwnd = reinterpret_cast<HWND>(window);
+    IUIAutomationElement* pWindowElement = nullptr;
+    HRESULT hr = m_uiAutomation->ElementFromHandle(hwnd, &pWindowElement);
+    if (FAILED(hr) || !pWindowElement) return result;
+
+    IUIAutomationTreeWalker* pWalker = nullptr;
+    hr = m_uiAutomation->get_ControlViewWalker(&pWalker);
+    if (FAILED(hr) || !pWalker) {
+        pWindowElement->Release();
+        return result;
+    }
+
+    collectControlsRecursive(pWalker, pWindowElement, result, 0);
 
     pWalker->Release();
     pWindowElement->Release();

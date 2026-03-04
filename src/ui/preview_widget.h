@@ -13,7 +13,7 @@ public:
     ~PreviewWidget() override;
 
     void setScreenPixmap(const QPixmap& pixmap);
-    void updatePosition(const QPoint& screenPos);
+    void updatePosition(const QPoint& screenPos, const QPoint& pixmapPos);
 
 protected:
     void paintEvent(QPaintEvent* event) override;

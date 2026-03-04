@@ -34,8 +34,6 @@ MainWindow::~MainWindow()
 void MainWindow::setupTrayIcon()
 {
     m_trayMenu = new QMenu(this);
-    m_trayMenu->addAction("Screenshot", this, &MainWindow::onStartCapture);
-    m_trayMenu->addSeparator();
     auto* settingsAction = m_trayMenu->addAction("Settings");
     settingsAction->setEnabled(false); // Reserved for future
     m_trayMenu->addSeparator();
@@ -94,7 +92,7 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, long* r
 
 void MainWindow::onTrayIconActivated(QSystemTrayIcon::ActivationReason reason)
 {
-    if (reason == QSystemTrayIcon::DoubleClick) {
+    if (reason == QSystemTrayIcon::Trigger || reason == QSystemTrayIcon::DoubleClick) {
         onStartCapture();
     }
 }

@@ -22,9 +22,9 @@ void PreviewWidget::setScreenPixmap(const QPixmap& pixmap)
     m_screenPixmap = pixmap;
 }
 
-void PreviewWidget::updatePosition(const QPoint& screenPos)
+void PreviewWidget::updatePosition(const QPoint& screenPos, const QPoint& pixmapPos)
 {
-    m_currentPos = screenPos;
+    m_currentPos = pixmapPos;  // For pixmap sampling
 
     // Position the preview widget near the cursor, offset to lower-right
     const int offsetX = 20;
