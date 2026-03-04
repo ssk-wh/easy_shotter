@@ -1,0 +1,28 @@
+# Changelog
+
+## [0.1.0] - 2026-03-04
+
+### Added
+- 核心截图功能：全屏截图、区域选择截图
+- 自动识别窗口区域（Win32 EnumWindows + DwmGetWindowAttribute）
+- 自动识别窗口内控件（UI Automation API，递归遍历深度 8 层）
+- Tab 键切换窗口级/控件级检测
+- 复制截图到剪贴板
+- 保存截图到文件（PNG/JPG/BMP，自动时间戳文件名）
+- 系统托盘常驻，单击托盘图标直接截图
+- 全局快捷键 Ctrl+Shift+A
+- 多显示器支持（虚拟桌面覆盖所有屏幕）
+- 截图覆盖层：半透明遮罩 + 选区打洞 + 蓝色边框 + 8 控制点拖拽调整
+- 工具栏：复制/保存/取消按钮（画笔/马赛克/箭头/文字按钮已预留）
+- 放大镜预览：6 倍放大 + 像素网格 + RGB 色值 + 坐标显示
+- 平台抽象层（PlatformApi）支持 Windows/Linux 扩展
+- 75 个单元测试（Qt Test 框架）
+- 完整架构文档和测试方案（106 个用例设计）
+
+### Fixed
+- 修复多显示器下工具栏和放大镜定位到错误屏幕的问题
+- 修复 Overlay 自身被窗口检测命中的问题（改为显示前缓存窗口列表）
+- 修复控件检测使用 ElementFromPoint 被 Overlay 拦截的问题（改用 TreeWalker）
+- 过滤 Progman/WorkerW 桌面窗口和 DWMWA_CLOAKED 隐藏窗口
+- 修复 ControlDetector 首次调用被节流返回空结果的 bug
+- 修复 QPainterPath 头文件缺失导致的编译错误
