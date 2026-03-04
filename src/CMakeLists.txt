@@ -31,12 +31,18 @@ elseif(UNIX AND NOT APPLE)
     )
 endif()
 
+set(RESOURCE_FILES)
+if(WIN32)
+    list(APPEND RESOURCE_FILES ${CMAKE_SOURCE_DIR}/resources/app_icon.rc)
+endif()
+
 add_executable(EasyShotter WIN32
     main.cpp
     ${CORE_SOURCES}
     ${UI_SOURCES}
     ${UTILS_SOURCES}
     ${PLATFORM_SOURCES}
+    ${RESOURCE_FILES}
 )
 
 target_include_directories(EasyShotter PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

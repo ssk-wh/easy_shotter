@@ -58,28 +58,26 @@ void MainWindow::setupHotkey()
 
 QIcon MainWindow::createTrayIcon() const
 {
-    // Draw a simple camera icon programmatically
+    // Try to load icon from resource file first
+    QIcon icon(":/resources/app_icon.ico");
+    if (!icon.isNull()) return icon;
+
+    // Fallback: load from file path relative to executable
+    icon = QIcon(QApplication::applicationDirPath() + "/app_icon.ico");
+    if (!icon.isNull()) return icon;
+
+    // Final fallback: draw programmatically
     QPixmap pixmap(32, 32);
     pixmap.fill(Qt::transparent);
 
     QPainter painter(&pixmap);
     painter.setRenderHint(QPainter::Antialiasing);
-
-    // Camera body
     painter.setPen(QPen(QColor(0, 120, 215), 2));
     painter.setBrush(QColor(0, 120, 215));
     painter.drawRoundedRect(4, 10, 24, 16, 3, 3);
-
-    // Camera lens
     painter.setPen(QPen(Qt::white, 2));
     painter.setBrush(Qt::NoBrush);
     painter.drawEllipse(QPoint(16, 18), 5, 5);
-
-    // Camera top bump
-    painter.setPen(Qt::NoPen);
-    painter.setBrush(QColor(0, 120, 215));
-    painter.drawRect(11, 6, 10, 6);
-
     painter.end();
     return QIcon(pixmap);
 }
