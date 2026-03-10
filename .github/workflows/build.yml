@@ -1,0 +1,121 @@
+name: Build
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*']
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(head -1 debian/changelog | grep -oP '\(.*?\)' | tr -d '()')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            debhelper cmake qtbase5-dev libqt5x11extras5-dev \
+            libxcb1-dev libxcb-ewmh-dev libxcb-icccm4-dev libx11-dev \
+            libatspi2.0-dev libglib2.0-dev pkg-config \
+            fakeroot dpkg-dev librsvg2-bin
+
+      - name: Generate PNG icons from SVG
+        run: |
+          cd resources
+          for size in 16 24 32 48 128 256 512; do
+            rsvg-convert -w $size -h $size app-icon.svg -o easyshotter_${size}.png
+          done
+
+      - name: Build DEB package
+        run: dpkg-buildpackage -us -uc -b
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p dist
+          cp ../easyshotter_*.deb dist/
+
+      - name: Upload DEB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: easyshotter_${{ steps.version.outputs.version }}_amd64.deb
+          path: dist/*.deb
+
+      - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/easyshotter_*.deb
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '5.15.2'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2019_64'
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Configure
+        run: |
+          mkdir build
+          cd build
+          cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$env:Qt5_DIR"
+
+      - name: Build
+        run: |
+          cd build
+          nmake
+
+      - name: Deploy Qt dependencies
+        run: |
+          mkdir deploy
+          copy build\src\EasyShotter.exe deploy\
+          copy resources\app_icon.ico deploy\
+          cd deploy
+          windeployqt --release --no-translations --no-opengl-sw EasyShotter.exe
+
+      - name: Extract version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(head -1 debian/changelog | grep -oP '\(.*?\)' | tr -d '()')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EasyShotter_${{ steps.version.outputs.version }}_win64
+          path: deploy/
+
+      - name: Create zip for release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          cd deploy
+          7z a ../EasyShotter_${{ steps.version.outputs.version }}_win64.zip .
+
+      - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: EasyShotter_${{ steps.version.outputs.version }}_win64.zip
