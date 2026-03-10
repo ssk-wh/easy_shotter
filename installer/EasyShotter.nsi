@@ -1,98 +1,110 @@
 ; EasyShotter NSIS Installer Script
-; Version: 0.2.0
 
 !include "MUI2.nsh"
+!include "FileFunc.nsh"
 
-; General
-Name "EasyShotter"
-OutFile "..\installer\EasyShotter-0.2.0-Setup.exe"
-InstallDir "$PROGRAMFILES64\EasyShotter"
-InstallDirRegKey HKLM "Software\EasyShotter" "InstallDir"
+; ============== Basic Info ==============
+!define APP_NAME "EasyShotter"
+!define APP_VERSION "0.2.0"
+!define APP_PUBLISHER "EasyShotter"
+!define APP_EXE "EasyShotter.exe"
+!define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
+
+Name "${APP_NAME} ${APP_VERSION}"
+OutFile "${APP_NAME}-${APP_VERSION}-Setup.exe"
+InstallDir "$PROGRAMFILES64\${APP_NAME}"
+InstallDirRegKey HKLM "${UNINSTALL_KEY}" "InstallLocation"
 RequestExecutionLevel admin
+Unicode True
 
-; Version info
-VIProductVersion "0.2.0.0"
-VIAddVersionKey "ProductName" "EasyShotter"
-VIAddVersionKey "ProductVersion" "0.2.0"
-VIAddVersionKey "FileDescription" "EasyShotter Screenshot Tool Installer"
-VIAddVersionKey "FileVersion" "0.2.0"
-
-; Icon
+; ============== MUI Settings ==============
+!define MUI_ABORTWARNING
 !define MUI_ICON "..\resources\app_icon.ico"
 !define MUI_UNICON "..\resources\app_icon.ico"
 
-; Interface Settings
-!define MUI_ABORTWARNING
-
-; Pages
+; ============== Pages ==============
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
-!define MUI_FINISHPAGE_RUN "$INSTDIR\EasyShotter.exe"
-!define MUI_FINISHPAGE_RUN_TEXT "Launch EasyShotter"
+
+!define MUI_FINISHPAGE_RUN "$INSTDIR\${APP_EXE}"
+!define MUI_FINISHPAGE_RUN_TEXT "启动 ${APP_NAME}"
 !insertmacro MUI_PAGE_FINISH
 
-; Uninstaller pages
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 
-; Language
+; ============== Languages ==============
 !insertmacro MUI_LANGUAGE "SimpChinese"
-!insertmacro MUI_LANGUAGE "English"
 
-; Installer Section
-Section "Install"
+; ============== Installer Sections ==============
+Section "主程序 (必需)" SecMain
+    SectionIn RO
+
     SetOutPath "$INSTDIR"
 
     ; Main executable and DLLs
-    File /r "..\deploy\*.*"
+    File "dist\${APP_EXE}"
+    File "dist\*.dll"
+    File /nonfatal "dist\app_icon.ico"
+
+    ; Qt plugins - platforms
+    SetOutPath "$INSTDIR\platforms"
+    File "dist\platforms\*.dll"
 
     ; Create uninstaller
+    SetOutPath "$INSTDIR"
     WriteUninstaller "$INSTDIR\Uninstall.exe"
 
-    ; Registry entries
-    WriteRegStr HKLM "Software\EasyShotter" "InstallDir" "$INSTDIR"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EasyShotter" \
-        "DisplayName" "EasyShotter"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EasyShotter" \
-        "DisplayVersion" "0.2.0"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EasyShotter" \
-        "UninstallString" "$\"$INSTDIR\Uninstall.exe$\""
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EasyShotter" \
-        "DisplayIcon" "$INSTDIR\app_icon.ico"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EasyShotter" \
-        "Publisher" "EasyShotter"
-    WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EasyShotter" \
-        "NoModify" 1
-    WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EasyShotter" \
-        "NoRepair" 1
+    ; Write registry info for Add/Remove Programs
+    WriteRegStr HKLM "${UNINSTALL_KEY}" "DisplayName" "${APP_NAME}"
+    WriteRegStr HKLM "${UNINSTALL_KEY}" "DisplayVersion" "${APP_VERSION}"
+    WriteRegStr HKLM "${UNINSTALL_KEY}" "Publisher" "${APP_PUBLISHER}"
+    WriteRegStr HKLM "${UNINSTALL_KEY}" "UninstallString" "$\"$INSTDIR\Uninstall.exe$\""
+    WriteRegStr HKLM "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
+    WriteRegStr HKLM "${UNINSTALL_KEY}" "DisplayIcon" "$INSTDIR\${APP_EXE}"
+    WriteRegDWORD HKLM "${UNINSTALL_KEY}" "NoModify" 1
+    WriteRegDWORD HKLM "${UNINSTALL_KEY}" "NoRepair" 1
 
-    ; Start menu shortcut
-    CreateDirectory "$SMPROGRAMS\EasyShotter"
-    CreateShortcut "$SMPROGRAMS\EasyShotter\EasyShotter.lnk" "$INSTDIR\EasyShotter.exe" \
-        "" "$INSTDIR\app_icon.ico"
-    CreateShortcut "$SMPROGRAMS\EasyShotter\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
-
-    ; Desktop shortcut
-    CreateShortcut "$DESKTOP\EasyShotter.lnk" "$INSTDIR\EasyShotter.exe" \
-        "" "$INSTDIR\app_icon.ico"
+    ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
+    WriteRegDWORD HKLM "${UNINSTALL_KEY}" "EstimatedSize" $0
 SectionEnd
 
-; Uninstaller Section
+Section "开始菜单快捷方式" SecStartMenu
+    CreateDirectory "$SMPROGRAMS\${APP_NAME}"
+    CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
+    CreateShortcut "$SMPROGRAMS\${APP_NAME}\卸载 ${APP_NAME}.lnk" "$INSTDIR\Uninstall.exe"
+SectionEnd
+
+Section "桌面快捷方式" SecDesktop
+    CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
+SectionEnd
+
+; ============== Section Descriptions ==============
+!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecMain} "安装 EasyShotter 主程序及所有必需文件"
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecStartMenu} "在开始菜单创建快捷方式"
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} "在桌面创建快捷方式"
+!insertmacro MUI_FUNCTION_DESCRIPTION_END
+
+; ============== Uninstaller ==============
 Section "Uninstall"
     ; Kill running process
-    nsExec::ExecToLog 'taskkill /F /IM EasyShotter.exe'
+    nsExec::ExecToLog 'taskkill /F /IM ${APP_EXE}'
+
+    ; Remove uninstall registry key
+    DeleteRegKey HKLM "${UNINSTALL_KEY}"
 
     ; Remove files
-    RMDir /r "$INSTDIR"
+    Delete "$INSTDIR\${APP_EXE}"
+    Delete "$INSTDIR\*.dll"
+    Delete "$INSTDIR\*.ico"
+    Delete "$INSTDIR\Uninstall.exe"
+
+    RMDir /r "$INSTDIR\platforms"
+    RMDir "$INSTDIR"
 
     ; Remove shortcuts
-    Delete "$SMPROGRAMS\EasyShotter\EasyShotter.lnk"
-    Delete "$SMPROGRAMS\EasyShotter\Uninstall.lnk"
-    RMDir "$SMPROGRAMS\EasyShotter"
-    Delete "$DESKTOP\EasyShotter.lnk"
-
-    ; Remove registry entries
-    DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EasyShotter"
-    DeleteRegKey HKLM "Software\EasyShotter"
+    Delete "$DESKTOP\${APP_NAME}.lnk"
+    RMDir /r "$SMPROGRAMS\${APP_NAME}"
 SectionEnd
