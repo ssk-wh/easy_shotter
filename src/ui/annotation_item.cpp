@@ -95,7 +95,7 @@ void TextAnnotation::draw(QPainter& painter) const
 void MosaicAnnotation::setSource(const QPixmap& pixmap)
 {
     sourcePixmap = pixmap;
-    m_cachedImage = pixmap.toImage();
+    m_cachedImage = pixmap.toImage().convertToFormat(QImage::Format_RGB32);
 }
 
 void MosaicAnnotation::addPoint(const QPoint& pt)
@@ -160,11 +160,12 @@ void MosaicAnnotation::drawToPixmap(QPainter& painter) const
 
             if (!affectedRegion.intersects(block)) continue;
 
-            // Average color of the block
+            // Average color of the block using fast scanLine access
             int r = 0, g = 0, b = 0, count = 0;
             for (int y = block.top(); y <= block.bottom(); y++) {
+                const QRgb* line = reinterpret_cast<const QRgb*>(srcImage.constScanLine(y));
                 for (int x = block.left(); x <= block.right(); x++) {
-                    QRgb px = srcImage.pixel(x, y);
+                    QRgb px = line[x];
                     r += qRed(px);
                     g += qGreen(px);
                     b += qBlue(px);

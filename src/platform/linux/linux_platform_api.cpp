@@ -520,7 +520,19 @@ ControlInfo LinuxPlatformApi::controlAtPoint(const QPoint& screenPos)
     ControlInfo info;
     if (!m_atspiInited) return info;
 
-    // Get desktop accessible root
+    // First find which window contains the point, then only search that app's tree
+    auto windows = getVisibleWindows();
+    uint32_t targetPid = 0;
+    QRect targetWindowRect;
+    for (const auto& win : windows) {
+        if (win.rect.contains(screenPos)) {
+            targetPid = getWindowPid(static_cast<uint32_t>(win.handle));
+            targetWindowRect = win.rect;
+            break;
+        }
+    }
+    if (targetPid == 0) return info;
+
     AtspiAccessible* desktop = atspi_get_desktop(0);
     if (!desktop) return info;
 
@@ -532,7 +544,6 @@ ControlInfo LinuxPlatformApi::controlAtPoint(const QPoint& screenPos)
         return info;
     }
 
-    // Search through all applications
     ControlInfo bestMatch;
     int bestArea = INT_MAX;
 
@@ -544,9 +555,21 @@ ControlInfo LinuxPlatformApi::controlAtPoint(const QPoint& screenPos)
             continue;
         }
 
-        // Traverse the app tree to find the control at point
+        // Filter by PID to only traverse the target app
+        error = nullptr;
+        guint pid = atspi_accessible_get_process_id(app, &error);
+        if (error) {
+            g_error_free(error);
+            g_object_unref(app);
+            continue;
+        }
+        if (pid != targetPid) {
+            g_object_unref(app);
+            continue;
+        }
+
         std::vector<ControlInfo> controls;
-        collectAccessibleControls(app, controls, 0, QRect(-32768, -32768, 65536, 65536));
+        collectAccessibleControls(app, controls, 0, targetWindowRect);
 
         for (const auto& ctrl : controls) {
             if (ctrl.rect.contains(screenPos)) {
@@ -559,6 +582,7 @@ ControlInfo LinuxPlatformApi::controlAtPoint(const QPoint& screenPos)
         }
 
         g_object_unref(app);
+        break;  // Found the target app, no need to continue
     }
 
     g_object_unref(desktop);

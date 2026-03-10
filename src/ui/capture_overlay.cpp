@@ -386,15 +386,20 @@ void CaptureOverlay::drawDimOverlay(QPainter& painter) const
         activeRect = m_selectionRect.normalized();
     }
 
+    QColor dimColor(0, 0, 0, 128);
     if (activeRect.isValid() && !activeRect.isEmpty()) {
-        QPainterPath fullPath;
-        fullPath.addRect(rect());
-        QPainterPath holePath;
-        holePath.addRect(activeRect);
-        QPainterPath dimPath = fullPath.subtracted(holePath);
-        painter.fillPath(dimPath, QColor(0, 0, 0, 128));
+        // Draw four rectangles around the hole instead of path subtraction
+        QRect full = rect();
+        // Top
+        painter.fillRect(QRect(full.left(), full.top(), full.width(), activeRect.top() - full.top()), dimColor);
+        // Bottom
+        painter.fillRect(QRect(full.left(), activeRect.bottom() + 1, full.width(), full.bottom() - activeRect.bottom()), dimColor);
+        // Left
+        painter.fillRect(QRect(full.left(), activeRect.top(), activeRect.left() - full.left(), activeRect.height()), dimColor);
+        // Right
+        painter.fillRect(QRect(activeRect.right() + 1, activeRect.top(), full.right() - activeRect.right(), activeRect.height()), dimColor);
     } else {
-        painter.fillRect(rect(), QColor(0, 0, 0, 128));
+        painter.fillRect(rect(), dimColor);
     }
 }
 
@@ -714,6 +719,9 @@ void CaptureOverlay::mouseMoveEvent(QMouseEvent* event)
 
     switch (m_state) {
     case State::AutoDetect:
+        if (m_mouseMoveThrottle.isValid() && m_mouseMoveThrottle.elapsed() < kMouseMoveThrottleMs)
+            return;
+        m_mouseMoveThrottle.restart();
         updateAutoDetect(pos);
         m_preview->updatePosition(mapToGlobal(pos), pos);
         update();

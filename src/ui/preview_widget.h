@@ -2,6 +2,7 @@
 
 #include <QWidget>
 #include <QPixmap>
+#include <QImage>
 #include <QPoint>
 
 namespace easyshotter {
@@ -28,6 +29,7 @@ private:
     static constexpr int kMargin = 5;
 
     QPixmap m_screenPixmap;
+    QImage m_screenImage;  // Cached QImage to avoid per-frame conversion
     QPoint m_currentPos;
 };
 

@@ -6,6 +6,7 @@
 #include <QRect>
 #include <QVector>
 #include <QColor>
+#include <QElapsedTimer>
 #include "../platform/platform_api.h"
 #include "annotation_item.h"
 #include <unordered_map>
@@ -122,6 +123,10 @@ private:
     std::unique_ptr<AnnotationItem> m_currentAnnotation;
     bool m_isDrawingAnnotation = false;
     QTextEdit* m_textInput = nullptr;
+
+    // Mouse move throttle
+    QElapsedTimer m_mouseMoveThrottle;
+    static constexpr int kMouseMoveThrottleMs = 16;  // ~60 FPS
 
     // Child widgets
     ToolbarWidget* m_toolbar;

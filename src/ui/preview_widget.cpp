@@ -20,6 +20,7 @@ PreviewWidget::~PreviewWidget() = default;
 void PreviewWidget::setScreenPixmap(const QPixmap& pixmap)
 {
     m_screenPixmap = pixmap;
+    m_screenImage = pixmap.toImage();  // Cache once, not per-frame
 }
 
 void PreviewWidget::updatePosition(const QPoint& screenPos, const QPoint& pixmapPos)
@@ -66,8 +67,8 @@ void PreviewWidget::paintEvent(QPaintEvent* event)
     int magY = kMargin;
     QRect magRect(magX, magY, kMagnifierSize, kMagnifierSize);
 
-    // Extract the region around cursor from screen pixmap
-    QImage screenImage = m_screenPixmap.toImage();
+    // Extract the region around cursor from cached screen image
+    const QImage& screenImage = m_screenImage;
     int srcX = m_currentPos.x() - kCaptureRadius;
     int srcY = m_currentPos.y() - kCaptureRadius;
     int srcSize = kCaptureRadius * 2 + 1;
