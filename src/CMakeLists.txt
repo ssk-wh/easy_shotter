@@ -70,9 +70,9 @@ elseif(UNIX AND NOT APPLE)
         ${ATSPI_INCLUDE_DIRS}
     )
     target_link_libraries(EasyShotter PRIVATE
+        Qt5::X11Extras
         ${XCB_LIBRARIES}
         ${X11_LIBRARIES}
         ${ATSPI_LIBRARIES}
-        X11-xcb
     )
 endif()

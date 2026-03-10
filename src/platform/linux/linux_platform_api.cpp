@@ -7,13 +7,13 @@
 #include <QAbstractNativeEventFilter>
 #include <QCoreApplication>
 #include <QPainter>
+#include <QX11Info>
 
 #include <xcb/xcb.h>
 #include <xcb/xcb_ewmh.h>
 #include <xcb/xcb_icccm.h>
 
 #include <X11/Xlib.h>
-#include <X11/Xlib-xcb.h>
 #include <X11/keysym.h>
 
 #include <atspi/atspi.h>
@@ -39,8 +39,8 @@ public:
 
         if (responseType == XCB_KEY_PRESS) {
             auto* keyEvent = reinterpret_cast<xcb_key_press_event_t*>(event);
-            // Strip lock modifiers (NumLock, CapsLock, ScrollLock)
-            unsigned int cleanState = keyEvent->state & ~(XCB_MOD_MASK_LOCK | XCB_MOD_MASK_2);
+            // Strip lock modifiers (NumLock=Mod2, CapsLock=Lock, ScrollLock=Mod5)
+            unsigned int cleanState = keyEvent->state & ~(XCB_MOD_MASK_LOCK | XCB_MOD_MASK_2 | XCB_MOD_MASK_5);
 
             for (auto& [id, binding] : *hotkeys) {
                 if (keyEvent->detail == binding.keycode &&
@@ -58,9 +58,10 @@ public:
 
 LinuxPlatformApi::LinuxPlatformApi()
 {
-    m_display = XOpenDisplay(nullptr);
+    // Use Qt's X11 connection so XGrabKey events arrive through Qt's event loop
+    m_display = QX11Info::display();
+    m_xcb = QX11Info::connection();
     if (m_display) {
-        m_xcb = XGetXCBConnection(m_display);
         m_defaultScreen = DefaultScreen(m_display);
         m_rootWindow = static_cast<uint32_t>(DefaultRootWindow(m_display));
     }
@@ -81,16 +82,22 @@ LinuxPlatformApi::~LinuxPlatformApi()
         for (auto& [id, binding] : m_hotkeys) {
             XUngrabKey(m_display, binding.keycode, binding.modifiers,
                        DefaultRootWindow(m_display));
+            // Also ungrab lock modifier variants
+            XUngrabKey(m_display, binding.keycode, binding.modifiers | LockMask,
+                       DefaultRootWindow(m_display));
+            XUngrabKey(m_display, binding.keycode, binding.modifiers | Mod2Mask,
+                       DefaultRootWindow(m_display));
+            XUngrabKey(m_display, binding.keycode, binding.modifiers | LockMask | Mod2Mask,
+                       DefaultRootWindow(m_display));
         }
+        XFlush(m_display);
     }
 
     delete m_hotkeyFilter;
 
-    if (m_display) {
-        XCloseDisplay(m_display);
-        m_display = nullptr;
-        m_xcb = nullptr;
-    }
+    // Don't close the display - it's owned by Qt
+    m_display = nullptr;
+    m_xcb = nullptr;
 }
 
 // ---- AT-SPI initialization ----
@@ -656,6 +663,7 @@ int LinuxPlatformApi::registerHotkey(Qt::Key key, Qt::KeyboardModifiers modifier
                  root, False, GrabModeAsync, GrabModeAsync);
     }
     XFlush(m_display);
+
     int id = m_nextHotkeyId++;
     m_hotkeys[id] = {static_cast<unsigned int>(keycode), xmod, std::move(callback)};
     return id;

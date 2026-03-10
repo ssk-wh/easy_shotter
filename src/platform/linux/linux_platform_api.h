@@ -6,7 +6,7 @@
 #if defined(__linux__)
 
 struct xcb_connection_t;
-struct _XDisplay;
+typedef struct _XDisplay Display;
 
 namespace easyshotter {
 
@@ -27,6 +27,13 @@ public:
                        std::function<void()> callback) override;
     void unregisterHotkey(int hotkeyId) override;
 
+    // Public for LinuxHotkeyFilter access
+    struct HotkeyBinding {
+        unsigned int keycode;
+        unsigned int modifiers;
+        std::function<void()> callback;
+    };
+
 private:
     // X11/XCB helpers
     uint32_t xcbAtom(const char* name);
@@ -41,9 +48,9 @@ private:
     void collectAccessibleControls(void* accessible, std::vector<ControlInfo>& result,
                                    int depth, const QRect& windowRect);
 
-    // XCB connection
+    // XCB connection (borrowed from Qt, do NOT close)
     xcb_connection_t* m_xcb = nullptr;
-    _XDisplay* m_display = nullptr;
+    Display* m_display = nullptr;
     uint32_t m_rootWindow = 0;
     int m_defaultScreen = 0;
 
@@ -53,15 +60,8 @@ private:
     // AT-SPI
     bool m_atspiInited = false;
 
-    // Hotkeys (public struct for LinuxHotkeyFilter access)
+    // Hotkeys
     int m_nextHotkeyId = 1;
-public:
-    struct HotkeyBinding {
-        unsigned int keycode;
-        unsigned int modifiers;
-        std::function<void()> callback;
-    };
-private:
     std::unordered_map<int, HotkeyBinding> m_hotkeys;
     LinuxHotkeyFilter* m_hotkeyFilter = nullptr;
 };
