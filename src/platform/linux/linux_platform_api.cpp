@@ -651,16 +651,11 @@ int LinuxPlatformApi::registerHotkey(Qt::Key key, Qt::KeyboardModifiers modifier
 
     // Grab with and without lock modifiers to handle CapsLock/NumLock
     unsigned int lockMasks[] = {0, LockMask, Mod2Mask, LockMask | Mod2Mask};
-    bool grabbed = false;
     for (unsigned int lockMask : lockMasks) {
-        int result = XGrabKey(m_display, keycode, xmod | lockMask,
-                              root, False, GrabModeAsync, GrabModeAsync);
-        if (result == 0) grabbed = true; // 0 = Success for Xlib
+        XGrabKey(m_display, keycode, xmod | lockMask,
+                 root, False, GrabModeAsync, GrabModeAsync);
     }
     XFlush(m_display);
-
-    // XGrabKey returns 1 on success (BadAccess=10 on failure)
-    // Actually XGrabKey returns int where 0 is BadRequest. Let's just check if we got here.
     int id = m_nextHotkeyId++;
     m_hotkeys[id] = {static_cast<unsigned int>(keycode), xmod, std::move(callback)};
     return id;

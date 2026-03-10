@@ -62,7 +62,7 @@ elseif(UNIX AND NOT APPLE)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(XCB REQUIRED xcb xcb-ewmh xcb-icccm)
     pkg_check_modules(X11 REQUIRED x11)
-    pkg_check_modules(ATSPI REQUIRED atspi-2)
+    pkg_check_modules(ATSPI REQUIRED atspi-2 gobject-2.0)
 
     target_include_directories(EasyShotter PRIVATE
         ${XCB_INCLUDE_DIRS}
