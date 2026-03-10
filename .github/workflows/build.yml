@@ -78,19 +78,14 @@ jobs:
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
-          name: EasyShotter-${{ env.VERSION }}-Setup.exe
+          name: EasyShotter-${{ env.VERSION }}-Setup.zip
           path: installer/EasyShotter-*-Setup.exe
-
-      - name: Create portable zip
-        run: |
-          cd installer/dist
-          zip -r "../EasyShotter-${VERSION}-Portable.zip" .
 
       - name: Upload portable
         uses: actions/upload-artifact@v4
         with:
           name: EasyShotter-${{ env.VERSION }}-Portable.zip
-          path: installer/EasyShotter-*-Portable.zip
+          path: installer/dist/
 
   build-linux:
     runs-on: ubuntu-22.04
@@ -131,7 +126,7 @@ jobs:
       - name: Upload DEB artifact
         uses: actions/upload-artifact@v4
         with:
-          name: easyshotter_${{ steps.version.outputs.version }}_amd64.deb
+          name: easyshotter_${{ steps.version.outputs.version }}_amd64.deb.zip
           path: dist/*.deb
 
   release:
@@ -147,11 +142,23 @@ jobs:
         with:
           path: artifacts
 
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          # Find and copy all release files from artifact directories
+          find artifacts -name '*.exe' -exec cp {} release/ \;
+          find artifacts -name '*.deb' -exec cp {} release/ \;
+          # Create portable zip from the portable artifact directory
+          PORTABLE_DIR=$(find artifacts -type d -name '*Portable*' | head -1)
+          if [ -n "$PORTABLE_DIR" ]; then
+            cd "$PORTABLE_DIR"
+            zip -r "$GITHUB_WORKSPACE/release/$(basename "$PORTABLE_DIR")" .
+            cd "$GITHUB_WORKSPACE"
+          fi
+          ls -lh release/
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            artifacts/**/*-Setup.exe
-            artifacts/**/*-Portable.zip
-            artifacts/**/*.deb
+          files: release/*
           generate_release_notes: true
