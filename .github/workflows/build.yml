@@ -17,7 +17,7 @@ jobs:
       - name: Extract version
         id: version
         run: |
-          VERSION=$(head -1 debian/changelog | grep -oP '\(.*?\)' | tr -d '()')
+          VERSION=$(sed -n 's/^[^(]*(\([^)]*\)).*/\1/p' debian/changelog | head -1)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Install build dependencies
@@ -98,7 +98,7 @@ jobs:
         id: version
         shell: bash
         run: |
-          VERSION=$(head -1 debian/changelog | grep -oP '\(.*?\)' | tr -d '()')
+          VERSION=$(sed -n 's/^[^(]*(\([^)]*\)).*/\1/p' debian/changelog | head -1)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Upload Windows artifact
