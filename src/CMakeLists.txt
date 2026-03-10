@@ -86,6 +86,11 @@ if(UNIX AND NOT APPLE)
     install(FILES ${CMAKE_SOURCE_DIR}/resources/app-icon.svg
             DESTINATION share/icons/hicolor/scalable/apps
             RENAME easyshotter.svg)
+    foreach(_size 16 24 32 48 128 256 512)
+        install(FILES ${CMAKE_SOURCE_DIR}/resources/easyshotter_${_size}.png
+                DESTINATION share/icons/hicolor/${_size}x${_size}/apps
+                RENAME easyshotter.png)
+    endforeach()
     install(FILES ${CMAKE_SOURCE_DIR}/debian/easyshotter.desktop
             DESTINATION share/applications)
 endif()

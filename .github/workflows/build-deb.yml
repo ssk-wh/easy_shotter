@@ -14,6 +14,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(head -1 debian/changelog | grep -oP '\(.*?\)' | tr -d '()')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Package version: $VERSION"
+
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -30,7 +37,15 @@ jobs:
             libglib2.0-dev \
             pkg-config \
             fakeroot \
-            dpkg-dev
+            dpkg-dev \
+            librsvg2-bin
+
+      - name: Generate PNG icons from SVG
+        run: |
+          cd resources
+          for size in 16 24 32 48 128 256 512; do
+            rsvg-convert -w $size -h $size app-icon.svg -o easyshotter_${size}.png
+          done
 
       - name: Build DEB package
         run: dpkg-buildpackage -us -uc -b
@@ -39,12 +54,11 @@ jobs:
         run: |
           mkdir -p dist
           cp ../easyshotter_*.deb dist/
-          cp ../easyshotter-dbgsym_*.deb dist/ 2>/dev/null || true
 
       - name: Upload DEB artifact
         uses: actions/upload-artifact@v4
         with:
-          name: easyshotter-deb
+          name: easyshotter_${{ steps.version.outputs.version }}_amd64.deb
           path: dist/*.deb
 
       - name: Upload to release
