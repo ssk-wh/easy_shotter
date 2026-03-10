@@ -76,3 +76,16 @@ elseif(UNIX AND NOT APPLE)
         ${ATSPI_LIBRARIES}
     )
 endif()
+
+if(UNIX AND NOT APPLE)
+    set_target_properties(EasyShotter PROPERTIES OUTPUT_NAME easyshotter)
+endif()
+
+install(TARGETS EasyShotter RUNTIME DESTINATION bin)
+if(UNIX AND NOT APPLE)
+    install(FILES ${CMAKE_SOURCE_DIR}/resources/app-icon.svg
+            DESTINATION share/icons/hicolor/scalable/apps
+            RENAME easyshotter.svg)
+    install(FILES ${CMAKE_SOURCE_DIR}/debian/easyshotter.desktop
+            DESTINATION share/applications)
+endif()

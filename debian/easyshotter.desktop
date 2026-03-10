@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=EasyShotter
+Comment=Screenshot tool with window and control detection
+Exec=easyshotter
+Icon=easyshotter
+Terminal=false
+Type=Application
+Categories=Graphics;Utility;
+Keywords=screenshot;capture;snip;
