@@ -13,6 +13,7 @@
 #include <xcb/xcb_icccm.h>
 
 #include <X11/Xlib.h>
+#include <X11/Xlib-xcb.h>
 #include <X11/keysym.h>
 
 #include <atspi/atspi.h>
@@ -305,7 +306,6 @@ std::vector<WindowInfo> LinuxPlatformApi::getVisibleWindows()
     uint32_t wmTypeDialog = xcbAtom("_NET_WM_WINDOW_TYPE_DIALOG");
     uint32_t wmTypeUtility = xcbAtom("_NET_WM_WINDOW_TYPE_UTILITY");
     uint32_t wmState = xcbAtom("_NET_WM_STATE");
-    uint32_t wmStateSkipTaskbar = xcbAtom("_NET_WM_STATE_SKIP_TASKBAR");
     uint32_t wmStateHidden = xcbAtom("_NET_WM_STATE_HIDDEN");
 
     // Iterate in reverse (topmost first)

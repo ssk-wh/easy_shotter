@@ -53,13 +53,15 @@ private:
     // AT-SPI
     bool m_atspiInited = false;
 
-    // Hotkeys
+    // Hotkeys (public struct for LinuxHotkeyFilter access)
     int m_nextHotkeyId = 1;
+public:
     struct HotkeyBinding {
         unsigned int keycode;
         unsigned int modifiers;
         std::function<void()> callback;
     };
+private:
     std::unordered_map<int, HotkeyBinding> m_hotkeys;
     LinuxHotkeyFilter* m_hotkeyFilter = nullptr;
 };
