@@ -38,42 +38,46 @@ easy_shotter/
 │   ├── ui/                     # 界面组件
 │   │   ├── capture_overlay.h/cpp     # 截图覆盖层
 │   │   ├── toolbar_widget.h/cpp      # 工具栏
-│   │   ├── preview_widget.h/cpp      # 预览窗口
-│   │   └── main_window.h/cpp        # 主窗口(托盘)
+│   │   ├── preview_widget.h/cpp      # 预览窗口（放大镜+颜色拾取）
+│   │   ├── main_window.h/cpp        # 主窗口(托盘)
+│   │   ├── annotation_item.h/cpp    # 标注图元（矩形/椭圆/箭头/文字/马赛克）
+│   │   ├── save_menu_widget.h/cpp   # 保存菜单
+│   │   └── style_panel_widget.h/cpp # 标注样式面板
 │   ├── utils/                  # 工具类
 │   │   ├── clipboard_manager.h/cpp   # 剪贴板
 │   │   ├── file_saver.h/cpp         # 文件保存
 │   │   └── hotkey_manager.h/cpp     # 快捷键
 │   └── platform/               # 平台相关
-│       ├── platform_api.h           # 平台抽象接口
-│       ├── win/                     # Windows 实现
-│       └── linux/                   # Linux 实现
+│       ├── platform_api.h/cpp       # 平台抽象接口 + 工厂
+│       ├── win/                     # Windows 实现 (UIAutomation)
+│       └── linux/                   # Linux 实现 (XCB + AT-SPI)
+├── debian/                     # Debian 打包配置
+├── installer/                  # Windows NSIS 安装包脚本
 ├── tests/                      # 单元测试
-│   ├── CMakeLists.txt
-│   └── ...
-└── resources/                  # 资源文件
+└── resources/                  # 资源文件（图标等）
 ```
 
 ## 架构设计要点
-- 平台相关代码通过抽象接口隔离
+- 平台相关代码通过 `PlatformApi` 抽象接口隔离，工厂方法创建实例
+- Windows: Win32 API + COM UIAutomation 实现控件识别
+- Linux: XCB 窗口枚举 + AT-SPI2 控件检测 + X11 XGrabKey 全局快捷键
 - 核心逻辑与 UI 解耦，便于测试
-- 预留绘画/标注层扩展接口（后期支持画笔、马赛克等）
 - 使用信号槽机制进行模块间通信
 
 ## 功能清单
-### P0 - 当前迭代
-- [x] 全屏截图
-- [x] 区域选择截图
-- [x] 自动识别窗口区域
-- [x] 自动识别窗口内控件
-- [x] 复制到剪贴板
-- [x] 保存到文件（桌面/自定义目录）
-- [x] 系统托盘
-- [x] 全局快捷键
+### 已完成
+- [x] 全屏截图 / 区域选择截图
+- [x] 自动识别窗口区域和控件
+- [x] 复制到剪贴板 / 保存到文件（桌面/自定义目录）
+- [x] 系统托盘 / 全局快捷键
+- [x] 标注工具：矩形、椭圆、箭头、文字、马赛克
+- [x] 撤销/重做
+- [x] 单实例运行
+- [x] DEB 打包 / NSIS 安装包
+- [x] GitHub Actions CI/CD（Windows + Linux）
 
-### P1 - 后续迭代（已预留架构）
-- [ ] 画笔标注
-- [ ] 马赛克/模糊
-- [ ] 箭头/文字标注
-- [ ] 撤销/重做
+### 待实现
+- [ ] 画笔自由绘制
 - [ ] 截图钉在桌面
+- [ ] 高 DPI / 缩放感知
+- [ ] Wayland 支持
