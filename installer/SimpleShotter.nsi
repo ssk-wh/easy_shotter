@@ -52,9 +52,9 @@ Section "主程序 (必需)" SecMain
     SetOutPath "$INSTDIR\platforms"
     File "dist\platforms\*.dll"
     SetOutPath "$INSTDIR\imageformats"
-    File "dist\imageformats\*.dll"
+    File /nonfatal "dist\imageformats\*.dll"
     SetOutPath "$INSTDIR\iconengines"
-    File "dist\iconengines\*.dll"
+    File /nonfatal "dist\iconengines\*.dll"
     SetOutPath "$INSTDIR\styles"
     File /nonfatal "dist\styles\*.dll"
 
