@@ -5,18 +5,22 @@
 #include <QApplication>
 #include <QScreen>
 
-namespace easyshotter {
+namespace simpleshotter {
 
 SaveMenuWidget::SaveMenuWidget(QWidget* parent)
     : QWidget(parent)
 {
-    setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Popup);
+    setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
     setAttribute(Qt::WA_TranslucentBackground);
+    setAttribute(Qt::WA_ShowWithoutActivating);
     setMouseTracking(true);
     layoutItems();
 }
 
-SaveMenuWidget::~SaveMenuWidget() = default;
+SaveMenuWidget::~SaveMenuWidget()
+{
+    qApp->removeEventFilter(this);
+}
 
 void SaveMenuWidget::layoutItems()
 {
@@ -56,7 +60,8 @@ void SaveMenuWidget::showAt(const QPoint& screenPos)
     move(pos);
     show();
     raise();
-    setFocus();
+    // Install global event filter to close menu on outside clicks
+    qApp->installEventFilter(this);
 }
 
 void SaveMenuWidget::paintEvent(QPaintEvent* event)
@@ -143,10 +148,26 @@ void SaveMenuWidget::leaveEvent(QEvent* event)
     update();
 }
 
-void SaveMenuWidget::focusOutEvent(QFocusEvent* event)
+void SaveMenuWidget::hideEvent(QHideEvent* event)
 {
-    Q_UNUSED(event)
-    hide();
+    qApp->removeEventFilter(this);
+    QWidget::hideEvent(event);
 }
 
-} // namespace easyshotter
+bool SaveMenuWidget::eventFilter(QObject* obj, QEvent* event)
+{
+    if (event->type() == QEvent::MouseButtonPress && isVisible()) {
+        auto* me = static_cast<QMouseEvent*>(event);
+        // If click is outside this menu, hide it but let the event propagate
+        QPoint globalPos = me->globalPos();
+        QRect menuRect(mapToGlobal(QPoint(0, 0)), size());
+        if (!menuRect.contains(globalPos)) {
+            hide();
+            // Don't consume the event — let it reach the toolbar or overlay
+            return false;
+        }
+    }
+    return QWidget::eventFilter(obj, event);
+}
+
+} // namespace simpleshotter

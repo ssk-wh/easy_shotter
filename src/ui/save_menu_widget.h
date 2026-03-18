@@ -4,7 +4,7 @@
 #include <QRect>
 #include <QVector>
 
-namespace easyshotter {
+namespace simpleshotter {
 
 class SaveMenuWidget : public QWidget {
     Q_OBJECT
@@ -24,7 +24,8 @@ protected:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void leaveEvent(QEvent* event) override;
-    void focusOutEvent(QFocusEvent* event) override;
+    void hideEvent(QHideEvent* event) override;
+    bool eventFilter(QObject* obj, QEvent* event) override;
 
 private:
     struct MenuItem {
@@ -44,4 +45,4 @@ private:
     int m_pressedIndex = -1;
 };
 
-} // namespace easyshotter
+} // namespace simpleshotter

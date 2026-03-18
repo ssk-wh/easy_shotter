@@ -11,7 +11,7 @@
 #include <QPainter>
 #include <QPixmap>
 
-namespace easyshotter {
+namespace simpleshotter {
 
 #ifdef Q_OS_WIN
 static MainWindow* g_mainWindowInstance = nullptr;
@@ -21,7 +21,7 @@ MainWindow::MainWindow(QWidget* parent)
     : QWidget(parent)
     , m_platformApi(PlatformApi::create())
 {
-    setWindowTitle("EasyShotter");
+    setWindowTitle("SimpleShotter");
     hide(); // Tray-mode application, main window is hidden
 
     m_clipboardManager = new ClipboardManager(this);
@@ -56,35 +56,28 @@ void MainWindow::setupTrayIcon()
 
     m_trayIcon = new QSystemTrayIcon(this);
     m_trayIcon->setContextMenu(m_trayMenu);
-    m_trayIcon->setToolTip("EasyShotter - Screenshot Tool");
+    m_trayIcon->setToolTip("SimpleShotter - Screenshot Tool");
     m_trayIcon->setIcon(createTrayIcon());
     connect(m_trayIcon, &QSystemTrayIcon::activated,
             this, &MainWindow::onTrayIconActivated);
     m_trayIcon->show();
-    m_trayIcon->showMessage("EasyShotter", "EasyShotter is running. Use Ctrl+Shift+A or click tray icon to capture.",
+    m_trayIcon->showMessage("SimpleShotter", "SimpleShotter is running. Use F1 or click tray icon to capture.",
                             QSystemTrayIcon::Information, 3000);
 }
 
 void MainWindow::setupHotkey()
 {
-    // Register Ctrl+Shift+A as global hotkey for screenshot
+    // Register F1 as global hotkey for screenshot
     m_hotkeyId = m_platformApi->registerHotkey(
-        Qt::Key_A, Qt::ControlModifier | Qt::ShiftModifier,
+        Qt::Key_F1, Qt::NoModifier,
         [this]() { onStartCapture(); });
 }
 
 QIcon MainWindow::createTrayIcon() const
 {
-    // Try to load icon from resource file first
-    QIcon icon(":/resources/app_icon.ico");
-    if (!icon.isNull() && !icon.availableSizes().isEmpty()) return icon;
-
-    // Fallback: load from file path relative to executable
-    QString iconPath = QApplication::applicationDirPath() + "/app_icon.ico";
-    if (QFileInfo::exists(iconPath)) {
-        icon = QIcon(iconPath);
-        if (!icon.isNull()) return icon;
-    }
+    // Load SVG icon from embedded Qt resource
+    QIcon icon(":/app-icon.svg");
+    if (!icon.isNull()) return icon;
 
     // Final fallback: draw programmatically
     QPixmap pixmap(32, 32);
@@ -137,7 +130,7 @@ void MainWindow::onCaptureConfirmed(const QPixmap& pixmap, const QRect& region)
     Q_UNUSED(region)
     // Default action: copy to clipboard
     m_clipboardManager->copyToClipboard(pixmap);
-    m_trayIcon->showMessage("EasyShotter", "Screenshot copied to clipboard!",
+    m_trayIcon->showMessage("SimpleShotter", "Screenshot copied to clipboard!",
                             QSystemTrayIcon::Information, 2000);
 }
 
@@ -146,7 +139,7 @@ void MainWindow::onCaptureSaveRequested(const QPixmap& pixmap, const QRect& regi
     Q_UNUSED(region)
     if (action == static_cast<int>(CaptureOverlay::SaveAction::SaveToDesktop)) {
         if (m_fileSaver->saveToDesktop(pixmap)) {
-            m_trayIcon->showMessage("EasyShotter",
+            m_trayIcon->showMessage("SimpleShotter",
                 QString::fromUtf8("截图已保存到桌面"),
                 QSystemTrayIcon::Information, 2000);
         }
@@ -159,7 +152,7 @@ void MainWindow::onCaptureSaveRequested(const QPixmap& pixmap, const QRect& regi
             "PNG (*.png);;JPEG (*.jpg);;BMP (*.bmp)");
         if (!filePath.isEmpty()) {
             if (m_fileSaver->saveToFile(pixmap, filePath)) {
-                m_trayIcon->showMessage("EasyShotter",
+                m_trayIcon->showMessage("SimpleShotter",
                     QString::fromUtf8("截图已保存到 ") + filePath,
                     QSystemTrayIcon::Information, 2000);
             }
@@ -187,19 +180,19 @@ void MainWindow::setupSingleInstanceListener()
 {
 #ifdef Q_OS_WIN
     g_mainWindowInstance = this;
-    m_captureMsg = RegisterWindowMessageW(L"EasyShotter_StartCapture");
+    m_captureMsg = RegisterWindowMessageW(L"SimpleShotter_StartCapture");
 
     WNDCLASSW wc = {};
     wc.lpfnWndProc = hiddenWndProc;
     wc.hInstance = GetModuleHandleW(nullptr);
-    wc.lpszClassName = L"EasyShotter_HiddenWindow";
+    wc.lpszClassName = L"SimpleShotter_HiddenWindow";
     RegisterClassW(&wc);
 
     m_hiddenWindow = CreateWindowW(
-        L"EasyShotter_HiddenWindow", L"EasyShotter_HiddenWindow",
+        L"SimpleShotter_HiddenWindow", L"SimpleShotter_HiddenWindow",
         0, 0, 0, 0, 0, HWND_MESSAGE, nullptr,
         GetModuleHandleW(nullptr), nullptr);
 #endif
 }
 
-} // namespace easyshotter
+} // namespace simpleshotter

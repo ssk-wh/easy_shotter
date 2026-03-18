@@ -12,7 +12,7 @@
 #include <QTextEdit>
 #include <QTimer>
 
-namespace easyshotter {
+namespace simpleshotter {
 
 CaptureOverlay::CaptureOverlay(PlatformApi* api, QWidget* parent)
     : QWidget(parent)
@@ -107,7 +107,6 @@ void CaptureOverlay::startCapture()
 
     // Set up preview magnifier
     m_preview->setScreenPixmap(m_screenPixmap);
-    m_preview->show();
     m_toolbar->hide();
 
     setCursor(Qt::CrossCursor);
@@ -116,6 +115,10 @@ void CaptureOverlay::startCapture()
     setFocus();
     raise();
     activateWindow();
+
+    // Show preview after overlay is visible, so it stays on top
+    m_preview->show();
+    m_preview->raise();
 }
 
 // ---- Selection helpers ----
@@ -585,6 +588,7 @@ void CaptureOverlay::mousePressEvent(QMouseEvent* event)
             updateToolbarUndoRedo();
             m_toolbar->hide();
             m_preview->show();
+            m_preview->raise();
             setCursor(Qt::CrossCursor);
             update();
         } else {
@@ -674,6 +678,7 @@ void CaptureOverlay::mousePressEvent(QMouseEvent* event)
             updateToolbarUndoRedo();
             m_toolbar->hide();
             m_preview->show();
+            m_preview->raise();
         }
     } else if (m_state == State::AutoDetect) {
         m_clickHighlightRect = m_highlightRect;
@@ -884,6 +889,7 @@ void CaptureOverlay::keyPressEvent(QKeyEvent* event)
             updateToolbarUndoRedo();
             m_toolbar->hide();
             m_preview->show();
+            m_preview->raise();
             setCursor(Qt::CrossCursor);
             update();
         } else {
@@ -929,4 +935,4 @@ void CaptureOverlay::keyPressEvent(QKeyEvent* event)
     }
 }
 
-} // namespace easyshotter
+} // namespace simpleshotter
