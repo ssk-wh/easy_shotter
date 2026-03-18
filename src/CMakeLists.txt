@@ -38,7 +38,12 @@ set(RESOURCE_FILES
     ${CMAKE_SOURCE_DIR}/resources/resources.qrc
 )
 if(WIN32)
-    list(APPEND RESOURCE_FILES ${CMAKE_SOURCE_DIR}/resources/app_icon.rc)
+    set(_RC_FILE ${CMAKE_SOURCE_DIR}/resources/app_icon.rc)
+    list(APPEND RESOURCE_FILES ${_RC_FILE})
+    # Ensure windres (MinGW) can find app_icon.ico relative to the .rc file
+    set_source_files_properties(${_RC_FILE} PROPERTIES
+        INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/resources
+    )
 endif()
 
 add_executable(SimpleShotter WIN32
