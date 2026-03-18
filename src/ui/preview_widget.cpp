@@ -4,7 +4,7 @@
 #include <QApplication>
 #include <QScreen>
 
-namespace easyshotter {
+namespace simpleshotter {
 
 PreviewWidget::PreviewWidget(QWidget* parent)
     : QWidget(parent)
@@ -155,4 +155,4 @@ void PreviewWidget::paintEvent(QPaintEvent* event)
     painter.drawText(posRect, Qt::AlignVCenter | Qt::AlignLeft, posText);
 }
 
-} // namespace easyshotter
+} // namespace simpleshotter

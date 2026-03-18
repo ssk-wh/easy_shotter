@@ -110,18 +110,20 @@ void MainWindow::onTrayIconActivated(QSystemTrayIcon::ActivationReason reason)
 
 void MainWindow::onStartCapture()
 {
-    if (!m_captureOverlay) {
-        m_captureOverlay = new CaptureOverlay(m_platformApi.get(), nullptr);
-        connect(m_captureOverlay, &CaptureOverlay::captureConfirmed,
-                this, &MainWindow::onCaptureConfirmed);
-        connect(m_captureOverlay, &CaptureOverlay::captureSaveRequested,
-                this, [this](const QPixmap& pixmap, const QRect& region, CaptureOverlay::SaveAction action) {
-                    onCaptureSaveRequested(pixmap, region, static_cast<int>(action));
-                });
-        connect(m_captureOverlay, &CaptureOverlay::captureCancelled,
-                this, &MainWindow::onCaptureCancelled);
-    }
-    if (m_captureOverlay->isVisible()) return;
+    if (m_captureOverlay && m_captureOverlay->isVisible()) return;
+
+    // Recreate overlay each time to avoid stale DPI/geometry context
+    // when switching between screens with different resolutions
+    delete m_captureOverlay;
+    m_captureOverlay = new CaptureOverlay(m_platformApi.get(), nullptr);
+    connect(m_captureOverlay, &CaptureOverlay::captureConfirmed,
+            this, &MainWindow::onCaptureConfirmed);
+    connect(m_captureOverlay, &CaptureOverlay::captureSaveRequested,
+            this, [this](const QPixmap& pixmap, const QRect& region, CaptureOverlay::SaveAction action) {
+                onCaptureSaveRequested(pixmap, region, static_cast<int>(action));
+            });
+    connect(m_captureOverlay, &CaptureOverlay::captureCancelled,
+            this, &MainWindow::onCaptureCancelled);
     m_captureOverlay->startCapture();
 }
 

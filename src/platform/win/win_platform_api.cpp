@@ -8,8 +8,9 @@
 #include <QScreen>
 #include <QWindow>
 #include <QImage>
+#include <QPainter>
 
-namespace easyshotter {
+namespace simpleshotter {
 
 bool WinHotkeyFilter::nativeEventFilter(const QByteArray& eventType, void* message, long* result)
 {
@@ -107,48 +108,135 @@ QRect WinPlatformApi::getWindowRect(HWND hwnd) const
                  rect.right - rect.left, rect.bottom - rect.top);
 }
 
+void WinPlatformApi::updateScreenMappings()
+{
+    m_screenMappings.clear();
+
+    // Collect physical monitor rects from Win32
+    struct MonitorData { QRect rect; };
+    std::vector<MonitorData> monitors;
+    EnumDisplayMonitors(nullptr, nullptr, [](HMONITOR hMon, HDC, LPRECT, LPARAM lParam) -> BOOL {
+        auto* list = reinterpret_cast<std::vector<MonitorData>*>(lParam);
+        MONITORINFO mi;
+        mi.cbSize = sizeof(mi);
+        GetMonitorInfoW(hMon, &mi);
+        list->push_back({QRect(mi.rcMonitor.left, mi.rcMonitor.top,
+                               mi.rcMonitor.right - mi.rcMonitor.left,
+                               mi.rcMonitor.bottom - mi.rcMonitor.top)});
+        return TRUE;
+    }, reinterpret_cast<LPARAM>(&monitors));
+
+    // Match each monitor with a QScreen by physical size
+    QList<QScreen*> screens = QGuiApplication::screens();
+    std::vector<bool> used(screens.size(), false);
+    for (const auto& mon : monitors) {
+        for (int i = 0; i < screens.size(); i++) {
+            if (used[i]) continue;
+            qreal dpr = screens[i]->devicePixelRatio();
+            QSize physSize(qRound(screens[i]->geometry().width() * dpr),
+                           qRound(screens[i]->geometry().height() * dpr));
+            // Fuzzy match: allow ±1 pixel rounding difference
+            if (qAbs(physSize.width() - mon.rect.width()) <= 1 &&
+                qAbs(physSize.height() - mon.rect.height()) <= 1) {
+                m_screenMappings.push_back({mon.rect, screens[i]->geometry(), dpr});
+                used[i] = true;
+                break;
+            }
+        }
+    }
+}
+
+QRect WinPlatformApi::physicalToLogical(const QRect& physical) const
+{
+    QPoint center = physical.center();
+    for (const auto& m : m_screenMappings) {
+        if (m.physicalRect.contains(center)) {
+            QPoint offset = physical.topLeft() - m.physicalRect.topLeft();
+            return QRect(
+                m.logicalRect.topLeft() + QPoint(qRound(offset.x() / m.dpr), qRound(offset.y() / m.dpr)),
+                QSize(qRound(physical.width() / m.dpr), qRound(physical.height() / m.dpr))
+            );
+        }
+    }
+    // Fallback: primary screen DPR
+    qreal dpr = QGuiApplication::primaryScreen()->devicePixelRatio();
+    return QRect(QPoint(qRound(physical.x() / dpr), qRound(physical.y() / dpr)),
+                 QSize(qRound(physical.width() / dpr), qRound(physical.height() / dpr)));
+}
+
+QPoint WinPlatformApi::logicalToPhysical(const QPoint& logical) const
+{
+    for (const auto& m : m_screenMappings) {
+        if (m.logicalRect.contains(logical)) {
+            QPoint offset = logical - m.logicalRect.topLeft();
+            return m.physicalRect.topLeft() + QPoint(qRound(offset.x() * m.dpr), qRound(offset.y() * m.dpr));
+        }
+    }
+    qreal dpr = QGuiApplication::primaryScreen()->devicePixelRatio();
+    return QPoint(qRound(logical.x() * dpr), qRound(logical.y() * dpr));
+}
+
 QPixmap WinPlatformApi::captureScreen()
 {
-    int x = GetSystemMetrics(SM_XVIRTUALSCREEN);
-    int y = GetSystemMetrics(SM_YVIRTUALSCREEN);
-    int w = GetSystemMetrics(SM_CXVIRTUALSCREEN);
-    int h = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+    updateScreenMappings();
+
+    // 1. Win32 BitBlt capture at physical resolution
+    int px = GetSystemMetrics(SM_XVIRTUALSCREEN);
+    int py = GetSystemMetrics(SM_YVIRTUALSCREEN);
+    int pw = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+    int ph = GetSystemMetrics(SM_CYVIRTUALSCREEN);
 
     HDC screenDC = GetDC(nullptr);
     HDC memDC = CreateCompatibleDC(screenDC);
-    HBITMAP hBitmap = CreateCompatibleBitmap(screenDC, w, h);
+    HBITMAP hBitmap = CreateCompatibleBitmap(screenDC, pw, ph);
     HBITMAP oldBitmap = static_cast<HBITMAP>(SelectObject(memDC, hBitmap));
-
-    BitBlt(memDC, 0, 0, w, h, screenDC, x, y, SRCCOPY);
-
+    BitBlt(memDC, 0, 0, pw, ph, screenDC, px, py, SRCCOPY);
     SelectObject(memDC, oldBitmap);
 
     BITMAPINFOHEADER bi = {};
     bi.biSize = sizeof(bi);
-    bi.biWidth = w;
-    bi.biHeight = -h;
+    bi.biWidth = pw;
+    bi.biHeight = -ph;
     bi.biPlanes = 1;
     bi.biBitCount = 32;
     bi.biCompression = BI_RGB;
 
-    QImage image(w, h, QImage::Format_ARGB32);
-    GetDIBits(memDC, hBitmap, 0, h, image.bits(),
+    QImage image(pw, ph, QImage::Format_ARGB32);
+    GetDIBits(memDC, hBitmap, 0, ph, image.bits(),
               reinterpret_cast<BITMAPINFO*>(&bi), DIB_RGB_COLORS);
-
     DeleteObject(hBitmap);
     DeleteDC(memDC);
     ReleaseDC(nullptr, screenDC);
 
-    return QPixmap::fromImage(image);
+    QPixmap physCapture = QPixmap::fromImage(image);
+
+    // 2. Compute logical virtual desktop
+    QRect logicalVirtual;
+    for (QScreen* screen : QGuiApplication::screens()) {
+        logicalVirtual = logicalVirtual.united(screen->geometry());
+    }
+
+    // 3. Composite at logical resolution — each screen's physical pixels
+    //    are scaled to fit its logical area. DPR=1, size=logical desktop.
+    QPixmap result(logicalVirtual.size());
+    result.fill(Qt::black);
+
+    QPainter painter(&result);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform);
+    for (const auto& mapping : m_screenMappings) {
+        QRect src = mapping.physicalRect.translated(-px, -py);
+        QRect tgt = mapping.logicalRect.translated(-logicalVirtual.topLeft());
+        painter.drawPixmap(tgt, physCapture, src);
+    }
+    painter.end();
+
+    return result;
 }
 
 QPixmap WinPlatformApi::captureRegion(const QRect& region)
 {
     QPixmap full = captureScreen();
-    int vx = GetSystemMetrics(SM_XVIRTUALSCREEN);
-    int vy = GetSystemMetrics(SM_YVIRTUALSCREEN);
-    QRect adjusted = region.translated(-vx, -vy);
-    return full.copy(adjusted);
+    return full.copy(region);
 }
 
 std::vector<WindowInfo> WinPlatformApi::getVisibleWindows()
@@ -163,7 +251,7 @@ std::vector<WindowInfo> WinPlatformApi::getVisibleWindows()
 
         WindowInfo info;
         info.handle = reinterpret_cast<quintptr>(hwnd);
-        info.rect = getWindowRect(hwnd);
+        info.rect = physicalToLogical(getWindowRect(hwnd));
         info.zOrder = zOrder++;
         info.isTopLevel = true;
 
@@ -192,17 +280,20 @@ ControlInfo WinPlatformApi::controlAtPoint(const QPoint& screenPos)
     ControlInfo info;
     if (!m_uiAutomation) return info;
 
+    // Convert logical screen coords to physical for Win32 API
+    QPoint physPos = logicalToPhysical(screenPos);
     IUIAutomationElement* pElement = nullptr;
-    POINT pt = {screenPos.x(), screenPos.y()};
+    POINT pt = {physPos.x(), physPos.y()};
     HRESULT hr = m_uiAutomation->ElementFromPoint(pt, &pElement);
     if (FAILED(hr) || !pElement) return info;
 
     RECT boundingRect;
     hr = pElement->get_CurrentBoundingRectangle(&boundingRect);
     if (SUCCEEDED(hr)) {
-        info.rect = QRect(boundingRect.left, boundingRect.top,
-                          boundingRect.right - boundingRect.left,
-                          boundingRect.bottom - boundingRect.top);
+        QRect physRect(boundingRect.left, boundingRect.top,
+                       boundingRect.right - boundingRect.left,
+                       boundingRect.bottom - boundingRect.top);
+        info.rect = physicalToLogical(physRect);
     }
 
     CONTROLTYPEID controlType;
@@ -338,6 +429,11 @@ std::vector<ControlInfo> WinPlatformApi::getWindowControls(NativeWindowHandle wi
 
     collectControlsRecursive(pWalker, pWindowElement, result, 0);
 
+    // Convert all control rects from physical to logical coordinates
+    for (auto& ctrl : result) {
+        ctrl.rect = physicalToLogical(ctrl.rect);
+    }
+
     pWalker->Release();
     pWindowElement->Release();
     return result;
@@ -381,6 +477,6 @@ std::unique_ptr<PlatformApi> PlatformApi::create()
     return std::make_unique<WinPlatformApi>();
 }
 
-} // namespace easyshotter
+} // namespace simpleshotter
 
 #endif // _WIN32

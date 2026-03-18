@@ -72,13 +72,6 @@ int CaptureOverlay::mosaicBlockSize() const
 
 void CaptureOverlay::startCapture()
 {
-    // Cover the entire virtual desktop
-    QRect virtualGeometry;
-    for (QScreen* screen : QApplication::screens()) {
-        virtualGeometry = virtualGeometry.united(screen->geometry());
-    }
-    setGeometry(virtualGeometry);
-
     // Capture screen and cache window list BEFORE showing overlay
     if (m_api) {
         m_screenPixmap = m_api->captureScreen();
@@ -109,7 +102,14 @@ void CaptureOverlay::startCapture()
     m_preview->setScreenPixmap(m_screenPixmap);
     m_toolbar->hide();
 
+    // Cover the entire virtual desktop
+    QRect virtualGeometry;
+    for (QScreen* screen : QApplication::screens()) {
+        virtualGeometry = virtualGeometry.united(screen->geometry());
+    }
+
     setCursor(Qt::CrossCursor);
+    setGeometry(virtualGeometry);
     show();
     setGeometry(virtualGeometry);
     setFocus();

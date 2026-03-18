@@ -9,7 +9,7 @@
 #include <unordered_map>
 #endif
 
-namespace easyshotter {
+namespace simpleshotter {
 
 #ifdef _WIN32
 class WinHotkeyFilter : public QAbstractNativeEventFilter {
@@ -40,11 +40,22 @@ private:
     bool isValidWindow(HWND hwnd) const;
     QRect getWindowRect(HWND hwnd) const;
 
+    // DPI coordinate conversion helpers
+    struct ScreenMapping {
+        QRect physicalRect;  // Win32 physical pixel rect
+        QRect logicalRect;   // Qt logical rect
+        qreal dpr;
+    };
+    void updateScreenMappings();
+    QRect physicalToLogical(const QRect& physicalRect) const;
+    QPoint logicalToPhysical(const QPoint& logicalPoint) const;
+
     IUIAutomation* m_uiAutomation = nullptr;
     int m_nextHotkeyId = 1;
     std::unordered_map<int, std::function<void()>> m_hotkeyCallbacks;
     WinHotkeyFilter m_hotkeyFilter;
+    std::vector<ScreenMapping> m_screenMappings;
 #endif
 };
 
-} // namespace easyshotter
+} // namespace simpleshotter
