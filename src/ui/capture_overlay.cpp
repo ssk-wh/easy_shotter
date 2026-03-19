@@ -209,8 +209,13 @@ void CaptureOverlay::updateAutoDetect(const QPoint& pos)
                 quintptr handle = matchedWindow.handle;
                 auto* watcher = new QFutureWatcher<std::vector<ControlInfo>>(this);
                 connect(watcher, &QFutureWatcher<std::vector<ControlInfo>>::finished, this, [this, handle, watcher]() {
-                    if (m_state != State::Idle) {
-                        m_controlsCache[handle] = watcher->result();
+                    if (m_state != State::Idle && m_api) {
+                        auto controls = watcher->result();
+                        // Convert physical coordinates to logical on main thread
+                        for (auto& ctrl : controls) {
+                            ctrl.rect = m_api->physicalToLogical(ctrl.rect);
+                        }
+                        m_controlsCache[handle] = std::move(controls);
                         update();
                     }
                     watcher->deleteLater();

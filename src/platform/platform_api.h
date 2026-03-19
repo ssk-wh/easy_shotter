@@ -71,6 +71,7 @@ public:
 
     virtual ControlInfo controlAtPoint(const QPoint& screenPos) = 0;
     virtual std::vector<ControlInfo> getWindowControls(NativeWindowHandle window) = 0;
+    virtual QRect physicalToLogical(const QRect& physicalRect) const { return physicalRect; }
 
     virtual int registerHotkey(Qt::Key key, Qt::KeyboardModifiers modifiers,
                                std::function<void()> callback) = 0;

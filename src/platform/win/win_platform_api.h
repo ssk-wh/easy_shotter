@@ -30,6 +30,7 @@ public:
     WindowInfo windowAtPoint(const QPoint& screenPos) override;
     ControlInfo controlAtPoint(const QPoint& screenPos) override;
     std::vector<ControlInfo> getWindowControls(NativeWindowHandle window) override;
+    QRect physicalToLogical(const QRect& physicalRect) const override;
     int registerHotkey(Qt::Key key, Qt::KeyboardModifiers modifiers,
                        std::function<void()> callback) override;
     void unregisterHotkey(int hotkeyId) override;
@@ -47,7 +48,6 @@ private:
         qreal dpr;
     };
     void updateScreenMappings();
-    QRect physicalToLogical(const QRect& physicalRect) const;
     QPoint logicalToPhysical(const QPoint& logicalPoint) const;
 
     IUIAutomation* m_uiAutomation = nullptr;

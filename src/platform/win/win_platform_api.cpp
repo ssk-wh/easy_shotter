@@ -499,24 +499,7 @@ std::vector<ControlInfo> PlatformApi::getWindowControlsAsync(NativeWindowHandle 
         pAutomation->Release();
     }
 
-    // Convert physical to logical coordinates using per-monitor DPI
-    for (auto& ctrl : result) {
-        HMONITOR hMon = MonitorFromPoint(
-            {ctrl.rect.left(), ctrl.rect.top()}, MONITOR_DEFAULTTONEAREST);
-        UINT dpiX = 96, dpiY = 96;
-        // GetDpiForMonitor requires shcore.dll (Win 8.1+)
-        typedef HRESULT(WINAPI* GetDpiFunc)(HMONITOR, int, UINT*, UINT*);
-        static auto getDpi = reinterpret_cast<GetDpiFunc>(
-            GetProcAddress(GetModuleHandleW(L"shcore.dll"), "GetDpiForMonitor"));
-        if (getDpi) getDpi(hMon, 0 /*MDT_EFFECTIVE_DPI*/, &dpiX, &dpiY);
-        qreal dpr = dpiX / 96.0;
-        if (dpr > 1.0) {
-            ctrl.rect = QRect(
-                qRound(ctrl.rect.x() / dpr), qRound(ctrl.rect.y() / dpr),
-                qRound(ctrl.rect.width() / dpr), qRound(ctrl.rect.height() / dpr));
-        }
-    }
-
+    // Return physical coordinates - caller converts on main thread
     CoUninitialize();
     return result;
 }
