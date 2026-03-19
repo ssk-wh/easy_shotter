@@ -383,23 +383,27 @@ void CaptureOverlay::paintEvent(QPaintEvent* event)
     // 3. Draw dim overlay with hole for active rect
     drawDimOverlay(painter);
 
-    // 4. Draw highlight region + border
+    // 4. Draw highlight region
     if (activeRect.isValid() && !activeRect.isEmpty()) {
         drawHighlightRegion(painter, activeRect);
+    }
+
+    // 5. Draw annotations (before border so border stays on top)
+    drawAnnotations(painter);
+
+    // 6. Draw selection border + size label
+    if (activeRect.isValid() && !activeRect.isEmpty()) {
         drawSelectionBorder(painter, activeRect);
         drawSizeLabel(painter, activeRect);
     }
 
-    // 5. Draw handles for selected/moving/resizing states
+    // 7. Draw handles for selected/moving/resizing states
     if (m_state == State::Selected || m_state == State::Moving || m_state == State::Resizing) {
         QRect sel = normalizedSelection();
         if (sel.isValid()) {
             drawHandles(painter, sel);
         }
     }
-
-    // 6. Draw annotations
-    drawAnnotations(painter);
 }
 
 void CaptureOverlay::drawDimOverlay(QPainter& painter) const

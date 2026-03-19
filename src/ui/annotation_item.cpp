@@ -152,8 +152,8 @@ void MosaicAnnotation::drawToPixmap(QPainter& painter) const
     int bx0 = (bounds.left() / blockSize) * blockSize;
     int by0 = (bounds.top() / blockSize) * blockSize;
 
-    for (int by = by0; by < bounds.bottom(); by += blockSize) {
-        for (int bx = bx0; bx < bounds.right(); bx += blockSize) {
+    for (int by = by0; by <= bounds.bottom(); by += blockSize) {
+        for (int bx = bx0; bx <= bounds.right(); bx += blockSize) {
             QRect block(bx, by, blockSize, blockSize);
             block &= QRect(0, 0, imgW, imgH);
             if (block.isEmpty()) continue;
